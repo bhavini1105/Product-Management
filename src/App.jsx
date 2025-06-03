@@ -3,22 +3,34 @@ import Index from './Components/Index';
 import Form from './Components/Form';
 import Table from './Components/Table';
 import { Route, Routes, useNavigate } from 'react-router';
+import axios from 'axios';
 
-function App() {
-
+const App = () => {
   const [product, setProduct] = useState({});
   const [productsData, setProductsData] = useState([]);
   const [godown, setGodown] = useState([]);
-  const [editId, setEditId] = useState(-1);
+  const [editId, setEditId] = useState("");
   const imgRef = useRef();
   const [error, setError] = useState({});
 
   const navigate = useNavigate();
+  const URL = "http://localhost:3000/product";
+
+  // useEffect(() => {
+  //   const oldData = JSON.parse(localStorage.getItem("productss") || "[]");
+  //   setProductsData(oldData);
+  // }, []);
 
   useEffect(() => {
-    const oldData = JSON.parse(localStorage.getItem("products") || "[]");
-    setProductsData(oldData);
+    handleFetch();
   }, []);
+
+  const handleFetch = async () => {
+    let res = await axios.get(URL);
+    setProductsData(res.data);
+    setEditId("");
+    setProduct({});
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked, files } = e.target;
@@ -53,35 +65,29 @@ function App() {
   const validation = () => {
     let errors = {};
     if (!product.product_name)
-      errors.product_name = "Product Name is required";
+      errors.product_name = "*Product Name is required";
     if (!product.product_price)
-      errors.product_price = "Product Price is required";
-    if (!product.product_stock) errors.product_stock = "Stock is required";
-    if (!product.product_image) errors.file = "Image is required";
-    if (!godown || godown.length === 0) errors.godown = "Godown is required";
-    if (!product.description) errors.description = "Description is required";
+      errors.product_price = "*Product Price is required";
+    if (!product.product_stock) errors.product_stock = "*Stock is required";
+    // if (!product.file) errors.file = "*Image is required";
+    if (!godown || godown.length === 0) errors.godown = "*Godown is required";
+    if (!product.description) errors.description = "*Description is required";
 
     setError(errors);
     return Object.keys(errors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!validation()) return;
 
-    if (editId === -1) {
-      const newData = [...productsData, { ...product, godown, id: Date.now() }];
-      setProductsData(newData);
-      localStorage.setItem("products", JSON.stringify(newData));
+    if (editId === "") {
+      await axios.post(URL, { ...product, godown, id: String(Date.now()) });
     } else {
-      const updatedData = productsData.map((item) =>
-        item.id === editId ? { ...product, godown, id: editId } : item
-      );
-      setProductsData(updatedData);
-      localStorage.setItem("products", JSON.stringify(updatedData));
-      setEditId(-1);
+      let res = await axios.put(`${URL}/${editId}`, { ...product });
     }
+    handleFetch();
 
     setProduct({});
     setGodown([]);
@@ -90,21 +96,21 @@ function App() {
     navigate("/table");
   };
 
-  const handleDelete = (id) => {
-    const newData = productsData.filter((item) => item.id !== id);
-    setProductsData(newData);
-    localStorage.setItem("products", JSON.stringify(newData));
+  const handleDelete = async (id) => {
+    await axios.delete(`${URL}/${id}`);
+    handleFetch();
   };
 
   const handleEdit = (id) => {
-    const selected = productsData.find((item) => item.id === id);
-    if (selected) {
-      setProduct(selected);
-      setGodown(selected.godown || []);
-      setEditId(id);
-      navigate("/form");
-    }
+    let user = productsData.find((item) => item.id === id);
+    if (!user) return;
+
+    setEditId(id);
+    setProduct(user);
+    setGodown(user.godown || []);
+    navigate("/form");
   };
+
   return (
     <>
       <Routes>
@@ -118,7 +124,7 @@ function App() {
               godown={godown}
               handleSubmit={handleSubmit}
               imgRef={imgRef}
-              isEdit={editId !== -1}
+              isEdit={editId !== ""}
               error={error}
             />
           }
@@ -136,6 +142,6 @@ function App() {
       </Routes>
     </>
   );
-}
+};
 
-export default App
+export default App;
